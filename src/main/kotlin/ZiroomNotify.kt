@@ -11,6 +11,7 @@ fun main() {
     println("找房任务 start....")
     var result = mutableListOf<Room>();
     val data = getZiroomList()
+    println("搜寻到 ${20 * data.first} 个房源")
     result.addAll(data.second)
     var cur = 1
     while (cur < data.first) {
@@ -26,6 +27,7 @@ fun main() {
         .sendTo("13093687239@163.com")
     println("找到房源 end....")
 }
+
 
 fun getZiroomList(page: Int = 1): Pair<Int, List<Room>> {
     val resp = httpGet {
