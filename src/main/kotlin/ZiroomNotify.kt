@@ -8,6 +8,7 @@ import io.github.rybalkinsd.kohttp.ext.url
 import java.util.*
 
 fun main() {
+    println("找房任务 start....")
     var result = mutableListOf<Room>();
     val data = getZiroomList()
     result.addAll(data.second)
@@ -17,11 +18,13 @@ fun main() {
         result.addAll(ziroomList.second)
     }
     if (result.isEmpty()) {
+        println("没有房源 end....")
         return
     }
     EmailBs.auth("13093687239@163.com", "EQHUKPQABLXVIKOS")
         .content("房源提醒", "${result.map { z -> "房屋名称${z.name}, 房屋价格${z.price} \n" }}\n")
         .sendTo("13093687239@163.com")
+    println("找到房源 end....")
 }
 
 fun getZiroomList(page: Int = 1): Pair<Int, List<Room>> {
