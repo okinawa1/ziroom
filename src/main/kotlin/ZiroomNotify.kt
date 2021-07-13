@@ -19,7 +19,7 @@ fun main() {
         result.addAll(ziroomList.second)
     }
     if (result.isEmpty()) {
-        println("没有房源 end....")
+        println("没有合适房源 end....")
         return
     }
     EmailBs.auth("13093687239@163.com", "EQHUKPQABLXVIKOS")
