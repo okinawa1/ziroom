@@ -3,9 +3,11 @@ import Constants.gson
 import Constants.noViewCommunities
 import com.github.houbb.email.bs.EmailBs
 import com.google.gson.Gson
+import io.github.rybalkinsd.kohttp.client.defaultHttpClient
 import io.github.rybalkinsd.kohttp.dsl.httpGet
 import io.github.rybalkinsd.kohttp.ext.url
 import java.util.*
+import java.util.concurrent.TimeUnit
 
 fun main() {
     println("找房任务 start....")
@@ -30,7 +32,7 @@ fun main() {
 
 
 fun getZiroomList(page: Int = 1): Pair<Int, List<Room>> {
-    val resp = httpGet {
+    val resp = httpGet(defaultHttpClient.newBuilder().readTimeout(20, TimeUnit.SECONDS).build()) {
         url("https://sh.ziroom.com/map/room/list")
         param {
             "min_lng" to 121.338027   // 七宝
