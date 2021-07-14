@@ -71,25 +71,6 @@ fun getZiroomList(page: Int = 1): Pair<Int, List<Room>> {
     return rawRes.data.pages to ziroomList
 }
 
-object Constants {
-    var gson = Gson()
-    var p = Properties().also { it.load(this.javaClass.getResourceAsStream("ziroom.properties").reader()) }
-    var filterRoomList = p.getProperty("noviewroomlist")?.split(",") ?: emptyList()
-    var noViewCommunities = p.getProperty("noViewCommunity")?.split(",") ?: emptyList()
-}
-
-data class ZiroomList(
-    val code: Int,
-    val `data`: Data,
-    val message: String
-)
-
-data class Data(
-    val pages: Int,
-    val rooms: List<Room>,
-    val total: Int
-)
-
 data class Room(
     val activities: List<Any>,
     val activity_marks: List<Any>,
@@ -207,6 +188,27 @@ data class Room(
         return location <= 1000
     }
 }
+
+
+object Constants {
+    var gson = Gson()
+    var p = Properties().also { it.load(this.javaClass.getResourceAsStream("ziroom.properties").reader()) }
+    var filterRoomList = p.getProperty("noviewroomlist")?.split(",") ?: emptyList()
+    var noViewCommunities = p.getProperty("noViewCommunity")?.split(",") ?: emptyList()
+}
+
+data class ZiroomList(
+    val code: Int,
+    val `data`: Data,
+    val message: String
+)
+
+data class Data(
+    val pages: Int,
+    val rooms: List<Room>,
+    val total: Int
+)
+
 
 data class Location(
     val name: String
