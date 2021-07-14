@@ -1,3 +1,4 @@
+import Constants.client
 import Constants.filterRoomList
 import Constants.gson
 import Constants.noViewCommunities
@@ -32,7 +33,7 @@ fun main() {
 
 
 fun getZiroomList(page: Int = 1): Pair<Int, List<Room>> {
-    val resp = httpGet(defaultHttpClient.newBuilder().readTimeout(20, TimeUnit.SECONDS).build()) {
+    val resp = httpGet(client) {
         url("https://sh.ziroom.com/map/room/list")
         param {
             "min_lng" to 121.338027   // 七宝
@@ -176,7 +177,7 @@ data class Room(
         val dateStr = matchEntire!!.groupValues[1]
         val month = dateStr.split("-")[0].toInt()
         val date = dateStr.split("-")[1].toInt()
-        if (month > 7 || (month == 7 && date >= 25)) {
+        if (month > 7) {
             return false
         }
         return true;
@@ -197,6 +198,7 @@ object Constants {
     var p = Properties().also { it.load(this.javaClass.getResourceAsStream("ziroom.properties").reader()) }
     var filterRoomList = p.getProperty("noviewroomlist")?.split(",") ?: emptyList()
     var noViewCommunities = p.getProperty("noViewCommunity")?.split(",") ?: emptyList()
+    val client = defaultHttpClient.newBuilder().readTimeout(20, TimeUnit.SECONDS).build()
 }
 
 data class ZiroomList(
