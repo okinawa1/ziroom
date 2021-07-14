@@ -67,7 +67,7 @@ fun getZiroomList(page: Int = 1): Pair<Int, List<Room>> {
         .filter { r -> r.isSignSoon() } //签约时间是否太久
         .filter { r -> r.isCloseToStation() } // 是否离公共交通近
         .toList()
-    ziroomList.forEach { println("房屋id = ${it.id}, 房屋名称 = ${it.name}， 房屋价格 = ${it.price}，其他信息 = $it") }
+    ziroomList.forEach { println("房屋id = ${it.id}, 房屋名称 = ${it.name}， 房屋价格 = ${it.price}") }
     return rawRes.data.pages to ziroomList
 }
 
