@@ -1,16 +1,13 @@
 import Constants.client
-import Constants.f
 import Constants.filterRoomList
 import Constants.gson
 import Constants.noViewCommunities
-import Constants.p
 import com.github.houbb.email.bs.EmailBs
 import com.google.gson.Gson
 import io.github.rybalkinsd.kohttp.client.defaultHttpClient
 import io.github.rybalkinsd.kohttp.dsl.httpGet
 import io.github.rybalkinsd.kohttp.ext.url
 import org.jsoup.Jsoup
-import java.io.File
 import java.util.*
 import java.util.concurrent.TimeUnit
 
@@ -73,15 +70,10 @@ fun getZiroomList(page: Int = 1): Pair<Int, List<Room>> {
         .filter { r -> r.isNotMoreThanFourRoom() } //房间是否超过4室
         .filter { r -> r.isSignSoon() } //签约时间是否太久
         .filter { r -> r.isCloseToStation() } // 是否离公共交通近
-        .filter { r -> r.isOriginalRoom().also { if (!it) registerRoomId(r.id) } } // 是否为原始房间，非隔断
+        .filter { r -> r.isOriginalRoom() } // 是否为原始房间，非隔断
         .toList()
     ziroomList.forEach { println("房屋id = ${it.id}, 房屋名称 = ${it.name}， 房屋价格 = ${it.price}") }
     return rawRes.data.pages to ziroomList
-}
-
-fun registerRoomId(id: String) {
-    p.setProperty("noviewroomlist", p.getProperty("noviewroomlist").plus(",${id}"))
-    p.store(f.bufferedWriter(), null)
 }
 
 data class Room(
@@ -216,8 +208,7 @@ data class Room(
 
 object Constants {
     var gson = Gson()
-    var f = File(this.javaClass.getResource("ziroom.properties").toURI())
-    var p = Properties().also { it.load(f.reader()) }
+    var p = Properties().also { it.load(this.javaClass.getResourceAsStream("ziroom.properties").reader()) }
     var filterRoomList = p.getProperty("noviewroomlist")?.split(",") ?: mutableListOf()
     var noViewCommunities = p.getProperty("noViewCommunity")?.split(",") ?: emptyList()
     val client = defaultHttpClient.newBuilder().readTimeout(20, TimeUnit.SECONDS).build()
