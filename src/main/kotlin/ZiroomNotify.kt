@@ -27,7 +27,7 @@ fun main() {
         return
     }
     EmailBs.auth("13093687239@163.com", "EQHUKPQABLXVIKOS")
-        .content("房源提醒", "${result.map { z -> "房屋名称${z.name}, 房屋价格${z.price} \n" }}\n")
+        .content("房源提醒", "${result.map { z -> "房屋id${z.id}, 房屋名称${z.name}, 房屋价格${z.price} \n" }}\n")
         .sendTo("13093687239@163.com")
     println("找到房源 end....")
 }
