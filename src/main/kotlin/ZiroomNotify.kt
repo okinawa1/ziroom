@@ -179,7 +179,7 @@ data class Room(
         val dateStr = matchEntire!!.groupValues[1]
         val month = dateStr.split("-")[0].toInt()
         val date = dateStr.split("-")[1].toInt()
-        if (month > 7) {
+        if (month > 8 || (month == 8 && date > 10)) {
             return false
         }
         return true;
