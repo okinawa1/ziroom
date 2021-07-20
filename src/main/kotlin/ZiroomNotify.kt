@@ -146,7 +146,7 @@ data class Room(
             return false
         }
 
-        if (listOf("5", "6", "7").contains(totalFloor) && listOf("4", "5", "6", "7").contains(curFloor)) {
+        if (listOf("5", "6", "7").contains(totalFloor) && listOf("5", "6", "7").contains(curFloor)) {
             return false
         }
         return true
