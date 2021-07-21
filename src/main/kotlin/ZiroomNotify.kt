@@ -2,7 +2,6 @@ import Constants.client
 import Constants.filterRoomList
 import Constants.gson
 import Constants.noViewCommunities
-import com.github.houbb.email.bs.EmailBs
 import com.google.gson.Gson
 import io.github.rybalkinsd.kohttp.client.defaultHttpClient
 import io.github.rybalkinsd.kohttp.dsl.httpGet
@@ -160,7 +159,7 @@ data class Room(
     }
 
     fun priceLimit(): Boolean {
-        return price in 2500..3600
+        return price in 2500..3800
     }
 
     /**
@@ -177,7 +176,7 @@ data class Room(
         val dateStr = matchEntire!!.groupValues[1]
         val month = dateStr.split("-")[0].toInt()
         val date = dateStr.split("-")[1].toInt()
-        if (month > 8 || (month == 8 && date > 10)) {
+        if (month > 8 || (month == 8 && date > 15)) {
             return false
         }
         return true;
