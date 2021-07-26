@@ -159,7 +159,7 @@ data class Room(
     }
 
     fun priceLimit(): Boolean {
-        return price in 2500..3800
+        return price in 2500..3600
     }
 
     /**
@@ -176,7 +176,7 @@ data class Room(
         val dateStr = matchEntire!!.groupValues[1]
         val month = dateStr.split("-")[0].toInt()
         val date = dateStr.split("-")[1].toInt()
-        if (month > 8 || (month == 8 && date > 15)) {
+        if (month > 8 || (month == 8 && date > 25)) {
             return false
         }
         return true;
