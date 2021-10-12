@@ -1,8 +1,8 @@
 import Constants.gson
 import com.google.gson.annotations.SerializedName
 import io.github.rybalkinsd.kohttp.ext.httpGet
+import java.lang.Thread.sleep
 import java.net.URLEncoder
-import kotlin.system.exitProcess
 
 /**
  * apple 有货提醒
@@ -13,13 +13,16 @@ fun main() {
     val resp =
         "https://www.apple.com.cn/shop/fulfillment-messages?pl=true&parts.0=$phone/A&location=$location".httpGet()
     val applePhoneResp = gson.fromJson(resp.body()?.string(), ApplePhoneResp::class.java)
-    val availableStore = applePhoneResp.body.content.pickupMessage.stores.map { store -> store.partsAvailability.phone }
-        .filterNot { p -> p.pickupDisplay == "unavailable" }
-    println(availableStore)
-    if (availableStore.isNotEmpty()) {
-        WechatSender().sendMsg(availableStore.map { s -> s.storePickupQuote }.joinToString(","))
+    while (true) {
+        val availableStore =
+            applePhoneResp.body.content.pickupMessage.stores.map { store -> store.partsAvailability.phone }
+                .filterNot { p -> p.pickupDisplay == "unavailable" }
+        println(availableStore)
+        if (availableStore.isNotEmpty()) {
+            WechatSender().sendMsg(availableStore.joinToString(",") { s -> s.storePickupQuote })
+        }
+        sleep(500)
     }
-    exitProcess(0)
 }
 
 data class ApplePhoneResp(
