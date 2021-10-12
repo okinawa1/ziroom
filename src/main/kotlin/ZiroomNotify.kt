@@ -237,3 +237,4 @@ data class Style(
     val background: String,
     val color: String
 )
+
