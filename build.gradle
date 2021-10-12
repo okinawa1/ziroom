@@ -13,7 +13,7 @@ repositories {
 jar {
     manifest {
         attributes "Manifest-Version": 1.0,
-                'Main-Class': 'ZiroomNotifyKt'
+                'Main-Class': 'AppleNotifyKt'
     } from { configurations.compileClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
 }
 
