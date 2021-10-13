@@ -17,8 +17,8 @@ fun main() {
         val availableStore =
             applePhoneResp.body.content.pickupMessage.stores.map { store -> store.partsAvailability.phone }
                 .filterNot { p -> p.pickupDisplay == "unavailable" }
-        println(availableStore)
         if (availableStore.isNotEmpty()) {
+            println(availableStore)
             WechatSender().sendMsg(availableStore.joinToString(",") { s -> s.storePickupQuote })
         }
         sleep(500)
