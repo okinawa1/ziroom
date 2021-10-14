@@ -10,6 +10,7 @@ import java.net.URLEncoder
 fun main() {
     val location = URLEncoder.encode("上海 上海")
     val phone = "MLTE3CH" //256g iphone 13 pro 远空蓝
+    var errCount = 0;
     while (true) {
         val applePhoneResp: ApplePhoneResp = try {
             val resp =
@@ -19,6 +20,11 @@ fun main() {
             gson.fromJson(string, ApplePhoneResp::class.java)
         } catch (e: Exception) {
             println(e.printStackTrace())
+            errCount++;
+            if (errCount > 100) {
+                WechatSender().sendMsg("获取不到apple 存货，请检查程序")
+                break;
+            }
             continue
         }
         val availableStore = applePhoneResp.body.content.pickupMessage.stores
