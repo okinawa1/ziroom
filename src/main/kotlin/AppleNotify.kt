@@ -10,7 +10,6 @@ fun main() {
     val location = URLEncoder.encode("上海 上海")
     val phone = "MLTE3CH" //256g iphone 13 pro 远空蓝
     var errCount = 0
-    var totalError = 0;
     var proxyClient = proxyClient()
 
     while (true) {
@@ -21,21 +20,17 @@ fun main() {
             ).body()?.string()?.fromJson(ApplePhoneResp::class.java)!!
         } catch (e: Exception) {
             println(e.printStackTrace())
+            sleep(3000)
             errCount++
             if (errCount > 5) {
                 proxyClient = proxyClient()
                 //重新计数
                 errCount = 0
-                totalError++
-                if (totalError > 5) {
-                    println("程序错误过多，请检查程序")
-                    WechatSender().sendMsg("程序错误过多，请检查程序")
-                    break
-                }
             }
             continue
         }
-        println(applePhoneResp)
+
+        println("成功获取到库存， $applePhoneResp")
         val availableStore = applePhoneResp.body.content.pickupMessage.stores
             .map { store -> store.partsAvailability.phone }
             .filterNot { p -> p.storePickupQuote.contains(Regex(".*苏州.*|.*无锡.*|.*杭州.*|.*西湖.*|.*天一.*")) }
