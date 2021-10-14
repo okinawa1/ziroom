@@ -35,7 +35,7 @@ fun main() {
             println(availableStore)
             WechatSender().sendMsg(availableStore.joinToString(",") { s -> s.storePickupQuote })
         }
-        sleep(800)
+        sleep(3000)
     }
 }
 
