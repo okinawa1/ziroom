@@ -17,7 +17,7 @@ fun main() {
             //请求苹果
             "https://www.apple.com.cn/shop/fulfillment-messages?pl=true&parts.0=$phone/A&location=$location".httpGet(
                 proxyClient
-            ).body()?.string()?.fromJson(ApplePhoneResp::class.java)!!
+            ).body()?.string()?.also { println(it) }?.fromJson(ApplePhoneResp::class.java)!!
         } catch (e: Exception) {
             println(e.printStackTrace())
             sleep(3000)
