@@ -20,7 +20,7 @@ class WechatSender(
         httpPost {
             url("https://qyapi.weixin.qq.com/cgi-bin/message/send?access_token=${accessToken}")
             body { json(SendForm(weComTouId, weComAId, Text(content)).toJson()) }
-        }
+        }.body()?.string()
     }
 
     data class Token(
