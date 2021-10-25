@@ -10,6 +10,8 @@ private fun getIp(): Ip? {
     return "https://ip.jiangxianli.com/api/proxy_ip".httpGet().body()?.string()?.fromJson(Ip::class.java)
 }
 
+
+
 fun proxyClient(): OkHttpClient {
     return getIp()?.let {
         println("获取到动态ip = $it")
@@ -21,6 +23,8 @@ fun proxyClient(): OkHttpClient {
         }
     } ?: defaultHttpClient
 }
+
+
 
 
 data class Ip(

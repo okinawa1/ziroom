@@ -19,26 +19,21 @@ fun WebElement.jsClick(driver: ChromeDriver) {
     driver.executeScript("arguments[0].click();", this)
 }
 
-fun WebElement.retrySendKeys(key: String) {
-    val retry = 3
-    for (i in 1..retry) {
-        try {
-            return this.sendKeys(key)
-        } catch (e: Exception) {
-            if (i == retry) {
-                throw e
-            }
-            Thread.sleep(100)
-        }
-    }
-    throw RuntimeException("send keys 失败, $this")
+fun ChromeDriver.getCookie(): String {
+    return this.manage().cookies.joinToString(separator = "; ", transform = { "${it.name}=${it.value}" })
+}
+
+fun WebElement.retrySendKeys(driver: ChromeDriver, key: String) {
+    WebDriverWait(driver, Duration.ofSeconds(10)).until { ExpectedConditions.visibilityOf(this) }
+    this.clear()
+    return this.sendKeys(key)
 }
 
 /**
  * 重试获取元素
  */
 fun ChromeDriver.retryFindElement(locator: By, retry: Long = 3): WebElement {
-//    WebDriverWait(this, Duration.ofSeconds(10)).until { ExpectedConditions.elementToBeClickable(locator) }
+    WebDriverWait(this, Duration.ofSeconds(10)).until { ExpectedConditions.elementToBeClickable(locator) }
     for (i in 1..retry) {
         try {
             return this.findElement(locator)
@@ -50,7 +45,40 @@ fun ChromeDriver.retryFindElement(locator: By, retry: Long = 3): WebElement {
         }
     }
     throw RuntimeException("find elements 失败, $this")
+}
 
+fun ChromeDriver.findVisibilityElement(locator: By, retry: Long = 3): WebElement {
+    WebDriverWait(this, Duration.ofSeconds(10)).until { ExpectedConditions.invisibilityOfElementLocated(locator) }
+    return this.findElement(locator)
+}
+
+fun retry(retry: Int = 3, apply: () -> Unit) {
+    for (i in 1..retry) {
+        try {
+            return apply.invoke()
+        } catch (e: Exception) {
+            println(e)
+            if (i == retry) {
+                throw e
+            }
+            Thread.sleep(1000)
+        }
+    }
+}
+
+fun <T> retryReturn(retry: Int = 3, apply: () -> T) :T {
+    for (i in 1..retry) {
+        try {
+            return apply.invoke()
+        } catch (e: Exception) {
+            println(e)
+            if (i == retry) {
+                throw e
+            }
+            Thread.sleep(1000)
+        }
+    }
+    throw RuntimeException("调用失败")
 }
 
 /**
