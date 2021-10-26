@@ -1,6 +1,7 @@
 import io.github.rybalkinsd.kohttp.client.client
 import io.github.rybalkinsd.kohttp.client.defaultHttpClient
 import io.github.rybalkinsd.kohttp.ext.httpGet
+import io.github.rybalkinsd.kohttp.interceptors.logging.HttpLoggingInterceptor
 import okhttp3.OkHttpClient
 import java.net.InetSocketAddress
 import java.net.Proxy
@@ -10,7 +11,14 @@ private fun getIp(): Ip? {
     return "https://ip.jiangxianli.com/api/proxy_ip".httpGet().body()?.string()?.fromJson(Ip::class.java)
 }
 
-
+val default = client {
+    connectTimeout = TimeUnit.SECONDS.toMillis(20)
+    readTimeout = TimeUnit.SECONDS.toMillis(20)
+    writeTimeout = TimeUnit.SECONDS.toMillis(20)
+    interceptors {
+        interceptors = listOf(HttpLoggingInterceptor())
+    }
+}
 
 fun proxyClient(): OkHttpClient {
     return getIp()?.let {
@@ -23,8 +31,6 @@ fun proxyClient(): OkHttpClient {
         }
     } ?: defaultHttpClient
 }
-
-
 
 
 data class Ip(

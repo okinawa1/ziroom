@@ -75,7 +75,7 @@ fun <T> retryReturn(retry: Int = 3, apply: () -> T) :T {
             if (i == retry) {
                 throw e
             }
-            Thread.sleep(1000)
+            Thread.sleep(500)
         }
     }
     throw RuntimeException("调用失败")
