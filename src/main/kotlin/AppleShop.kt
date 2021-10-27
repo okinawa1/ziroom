@@ -14,98 +14,121 @@ import java.net.URLEncoder
 import java.time.Duration
 import java.util.*
 import java.util.concurrent.CountDownLatch
-import java.util.concurrent.CyclicBarrier
 import kotlin.concurrent.timerTask
 import kotlin.system.measureTimeMillis
 
 //val shanghaiShop = listOf("R390", "R359", "R401", "R389", "R683", "R581", "R705")
 val shanghaiShop = listOf("R390", "R359")
 
+val chromeOptions = ChromeOptions().apply {
+    //无头的问题
+//        addArguments("--window-size=1920,1080","--start-maximized","--ignore-certificate-errors","--allow-running-insecure-content", "--disable-extensions", "--headless", "--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage", "--proxy-server=direct://")
+//        setHeadless(true)
+    setPageLoadStrategy(PageLoadStrategy.NORMAL)
+    setImplicitWaitTimeout(Duration.ofSeconds(10))
+}
+
 fun main() {
     System.setProperty("webdriver.chrome.driver", "/Users/mars/chromedriver")
-    val chromeOptions = ChromeOptions().apply {
-        //无头的问题
-//        addArguments("--window-size=1920,1080","--start-maximized","--ignore-certificate-errors","--allow-running-insecure-content", "--disable-extensions", "--headless", "--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage", "--proxy-server=direct://")
-        setPageLoadStrategy(PageLoadStrategy.NORMAL)
-//        setHeadless(true)
-        setImplicitWaitTimeout(Duration.ofSeconds(10))
+    while (true) {
+//        val phone = "MLTE3CH/A" //远峰蓝
+        val phone = "MJQ73CH/A" //iphone12
+        val task = MonitorStockTask(phone, "上海 上海 黄浦区", shanghaiShop.size)
+        val thread = Thread(task, task.javaClass.simpleName)
+        thread.start()
+        val latch = CountDownLatch(shanghaiShop.size)
+        println("开始抢购")
+        shanghaiShop.forEach { store ->
+            Thread { goToShopping(store, latch, task) }.start()
+        }
+        latch.await()
+        thread.interrupt()
+        println("退出抢购")
+        Thread.sleep(2000)
     }
-//    val phone = "MLTE3CH/A" //远峰蓝
-    val phone = "MJQ73CH/A" //iphone12
-    val task = MonitorStockTask(phone, "上海 上海 黄浦区", shanghaiShop.size)
-    Thread(task, "MonitorStockTask").start()
-    val barrier = CyclicBarrier(shanghaiShop.size)
-    shanghaiShop.parallelStream().forEach { store ->
-        while (true) {
-            var driver: ChromeDriver? = null
-            var timer: Timer? = null
-            //是否正在购物
-            var stk = ""
-            val latch = CountDownLatch(1)
-            try {
-                driver = ChromeDriver(chromeOptions)
-                driver.devTools.apply {
-                    createSession()
-                    send(Network.enable(Optional.empty(), Optional.empty(), Optional.empty()))
-                    addListener(Network.requestWillBeSent()) { entry ->
-                        //读取cookie
-                        if (entry.request.url.contains("/shop/checkoutx")) {
-                            stk = entry.request.headers["x-aos-stk"]?.toString() ?: ""
-                        }
-                    }
+}
+
+private fun goToShopping(
+    store: String,
+    globalLatch: CountDownLatch,
+    task: MonitorStockTask
+) {
+    while (true) {
+        var timer: Timer? = null
+        var stk = ""
+        val driver = ChromeDriver(chromeOptions)
+        driver.devTools.apply {
+            createSession()
+            send(Network.enable(Optional.empty(), Optional.empty(), Optional.empty()))
+            addListener(Network.requestWillBeSent()) { entry ->
+                //读取cookie
+                if (entry.request.url.contains("/shop/checkoutx")) {
+                    stk = entry.request.headers["x-aos-stk"]?.toString() ?: ""
                 }
-                timer = Timer()
-                //加购
-                readyShopIphone12(driver)
-//                readyShopIphone13Pro(driver)
-                refreshAppStore(driver)
-                //当前页面有库存吗
-                val urlHead = driver.currentUrl.subSequence(8, 15).toString()
-                val cookie = driver.getCookie()
-                //定时刷新页面，180秒一次,检查是否有库存
-                timer.schedule(
-                    timerTask { driver["https://$urlHead.www.apple.com.cn/shop/checkout?_s=Fulfillment-init"] },
+            }
+        }
+        //是否正在购物
+        val latch = CountDownLatch(1)
+        try {
+            //加购
+            readyShopIphone12(driver)
+//            readyShopIphone13Pro(driver)
+            refreshAppStore(driver)
+            //当前页面有库存吗
+            val urlHead = driver.currentUrl.subSequence(8, 15).toString()
+            val cookie = driver.getCookie()
+            //定时刷新页面，180秒一次,检查是否有库存
+            timer = Timer().apply {
+                schedule(
+                    timerTask {
+                        driver["https://$urlHead.www.apple.com.cn/shop/checkout?_s=Fulfillment-init"]
+                        Thread.sleep(2000)
+                        if (driver.currentUrl.contains("session_expired")) {
+                            //如果session过期就重开
+                            latch.countDown()
+                        }
+                    },
                     60 * 3000L,
                     60 * 3000L
                 )
-                shopping(stk, cookie, store, urlHead)
-                //下单成功，取消任务
-                barrier.await()
-                task.register { s ->
-                    //只有有货的时候，才能往下走。
-                    if (store == s) {
-                        try {
-                            val times = measureTimeMillis {
-                                pickup(stk, cookie, urlHead)
-                                billing(stk, cookie, urlHead)
-                                reviewOrder(stk, cookie, urlHead)
-                            }
-                            println("下单耗时${times / 1000} s")
-                            driver["https://$urlHead.www.apple.com.cn/shop/checkout/status"]
-                            Thread.sleep(10000)
-                            if (!driver.currentUrl.contains("/shop/checkout/thankyou")) {
-                                throw RuntimeException("下单失败")
-                            }
-                            WechatSender().sendMsg("苹果商店下单成功，请尽快支付")
-                        } catch (e: Exception) {
-                            WechatSender().sendMsg("苹果商店下单失败，请检查程序${e.message}")
-                        }
-                    }
-                    latch.countDown()
-                } //这里不会抛异常
-                latch.await() //下单成功才会继续执行。
-                break
-            } catch (e: Exception) {
-                println("系统异常,${e.printStackTrace()}")
-//                WechatSender().sendMsg("系统异常,${e.message ?: ""}")
-            } finally {
-                println("退出购买流程, $store")
-                timer?.cancel()
-                driver?.quit()
             }
+            //加购
+            shopping(stk, cookie, store, urlHead)
+            //注册下单
+            task.register { s ->
+                //只有有货的时候，才能往下走。
+                if (store == s) {
+                    try {
+                        val times = measureTimeMillis {
+                            pickup(stk, cookie, urlHead)
+                            billing(stk, cookie, urlHead)
+                            reviewOrder(stk, cookie, urlHead)
+                        }
+                        println("下单耗时${times / 1000} s")
+                        driver["https://$urlHead.www.apple.com.cn/shop/checkout/status"]
+                        Thread.sleep(10000)
+                        if (!driver.currentUrl.contains("/shop/checkout/thankyou")) {
+                            throw RuntimeException("下单失败")
+                        }
+                        WechatSender().sendMsg("苹果商店下单成功，请尽快支付")
+                    } catch (e: Exception) {
+                        WechatSender().sendMsg("苹果商店下单失败，请检查程序${e.message}")
+                    }
+                }
+                latch.countDown()
+            } //这里不会抛异常
+            latch.await() //下单成功才会继续执行。
+            globalLatch.countDown() //执行完就全局countDown
+            break
+        } catch (e: Exception) {
+            println("系统异常,${e.printStackTrace()}")
+//                WechatSender().sendMsg("系统异常,${e.message ?: ""}")
+        } finally {
+            println("退出购买流程, $store")
+            timer?.cancel()
+            driver.quit()
         }
     }
-    println("退出")
 }
 
 private fun shopping(stk: String = "", cookie: String, storeId: String, urlHead: String) {
@@ -118,6 +141,7 @@ private fun shopping(stk: String = "", cookie: String, storeId: String, urlHead:
     val city = "上海"
     val provinceCityDistrict = "上海 黄浦区"
     val district = "黄浦区"
+    stateCitySelectorForCheckout(stk, cookie, city, city, provinceCityDistrict, district, urlHead)
     queryStoreLocator(stk, cookie, searchInput, city, city, provinceCityDistrict, district, urlHead)
     val d = selectStoreLocator(
         stk, cookie,
@@ -157,6 +181,24 @@ private fun shopping(stk: String = "", cookie: String, storeId: String, urlHead:
     )
 }
 
+fun stateCitySelectorForCheckout(
+    stk: String,
+    cookie: String,
+    city: String,
+    state: String,
+    provinceCityDistrict: String,
+    district: String,
+    urlHead: String
+) {
+    httpPost {
+        url("https://$urlHead.www.apple.com.cn/shop/checkoutx?_a=Selectstate&_m=checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout")
+        appleHeader(stk, cookie)
+        body("application/x-www-form-urlencoded") {
+            string("checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout.city=$city&checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout.state=$state&checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout.provinceCityDistrict=$provinceCityDistrict&checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout.countryCode=CN&checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout.district=$district")
+        }
+    }.body()?.string()?.also { println(it) }
+}
+
 /**
  * 查询有货店铺
  */
@@ -170,7 +212,7 @@ fun queryStoreLocator(
     district: String,
     urlHead: String
 ): AvailableStockResp {
-    val availableStockResp = (httpPost {
+    val availableStockResp = httpPost {
         url("https://$urlHead.www.apple.com.cn/shop/checkoutx?_a=search&_m=checkout.fulfillment.pickupTab.pickup.storeLocator")
         appleHeader(stk, cookie)
         body("application/x-www-form-urlencoded") {
@@ -179,7 +221,7 @@ fun queryStoreLocator(
     }.body()?.string()?.also {
         println(it)
     }?.fromJson(AvailableStockResp::class.java)
-        ?: throw RuntimeException("请求查询店铺库存接口失败"))
+        ?: throw RuntimeException("请求查询店铺库存接口失败")
     println("查询库存成功")
     return availableStockResp
 }
@@ -419,7 +461,6 @@ class MonitorStockTask(private val phone: String, private val location: String, 
     private var listeners = arrayListOf<(String) -> Unit>()
 
     override fun run() {
-//        var proxyClient = proxyClient()
         while (true) {
             if (listeners.size < acceptListeners) {
                 continue
@@ -449,15 +490,17 @@ class MonitorStockTask(private val phone: String, private val location: String, 
                 println(availableStore) //TODO 有货，正在下单
                 WechatSender().sendMsg("当前商店有货，准备下单 ${availableStore.storeName}")
                 val latch = CountDownLatch(listeners.size)
-                listeners.parallelStream().forEach { a ->
-                    try {
-                        a.invoke(availableStore.storeNumber)
-                    } catch (e: Exception) {
-                        println("下单失败，${e.message}")
+                listeners.forEach { a ->
+                    Thread {
+                        try {
+                            a.invoke(availableStore.storeNumber)
+                        } catch (e: Exception) {
+                            println("下单失败，${e.message}")
 //                        WechatSender().sendMsg("当前商店${availableStore.storeName}下单失败")
-                    } finally {
-                        latch.countDown()
-                    }
+                        } finally {
+                            latch.countDown()
+                        }
+                    }.start()
                 }
                 latch.await()
                 listeners.clear()
