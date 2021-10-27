@@ -18,7 +18,8 @@ import java.util.concurrent.CyclicBarrier
 import kotlin.concurrent.timerTask
 import kotlin.system.measureTimeMillis
 
-val shanghaiShop = listOf("R390", "R359", "R401", "R389", "R683", "R581", "R705")
+//val shanghaiShop = listOf("R390", "R359", "R401", "R389", "R683", "R581", "R705")
+val shanghaiShop = listOf("R390", "R359")
 
 fun main() {
     System.setProperty("webdriver.chrome.driver", "/Users/mars/chromedriver")
@@ -31,8 +32,8 @@ fun main() {
     }
 //    val phone = "MLTE3CH/A" //远峰蓝
     val phone = "MJQ73CH/A" //iphone12
-    val task = MonitorStockTask(phone, "上海 上海 黄浦区")
-    Thread(task).start()
+    val task = MonitorStockTask(phone, "上海 上海 黄浦区", shanghaiShop.size)
+    Thread(task, "MonitorStockTask").start()
     val barrier = CyclicBarrier(shanghaiShop.size)
     shanghaiShop.parallelStream().forEach { store ->
         while (true) {
@@ -79,7 +80,7 @@ fun main() {
                                 billing(stk, cookie, urlHead)
                                 reviewOrder(stk, cookie, urlHead)
                             }
-                            println("下单耗时${times/1000} s")
+                            println("下单耗时${times / 1000} s")
                             driver["https://$urlHead.www.apple.com.cn/shop/checkout/status"]
                             Thread.sleep(10000)
                             if (!driver.currentUrl.contains("/shop/checkout/thankyou")) {
@@ -98,11 +99,13 @@ fun main() {
                 println("系统异常,${e.printStackTrace()}")
 //                WechatSender().sendMsg("系统异常,${e.message ?: ""}")
             } finally {
+                println("退出购买流程, $store")
                 timer?.cancel()
                 driver?.quit()
             }
         }
     }
+    println("退出")
 }
 
 private fun shopping(stk: String = "", cookie: String, storeId: String, urlHead: String) {
@@ -124,7 +127,7 @@ private fun shopping(stk: String = "", cookie: String, storeId: String, urlHead:
         city,
         provinceCityDistrict,
         district,
-        urlHead,
+        urlHead
     ).body.checkout.fulfillment.pickupTab.pickup.timeSlot.dateTimeSlots.d
     val timeSlot = d.timeSlotWindows.find { map ->
         map.values.flatten().isNotEmpty()
@@ -233,7 +236,6 @@ fun fulfillment(
         body("application/x-www-form-urlencoded") {
             string(
                 "checkout.fulfillment.fulfillmentOptions.selectFulfillmentLocation=RETAIL&checkout.fulfillment.pickupTab.pickup.storeLocator.showAllStores=false&checkout.fulfillment.pickupTab.pickup.storeLocator.selectStore=$selectStore&checkout.fulfillment.pickupTab.pickup.storeLocator.searchInput=$searchInput&checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout.city=$city&checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout.state=$city&checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout.provinceCityDistrict=$provinceCityDistrict&checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout.countryCode=CN&checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout.district=$district&checkout.fulfillment.pickupTab.pickup.timeSlot.dateTimeSlots.startTime=$startTime&checkout.fulfillment.pickupTab.pickup.timeSlot.dateTimeSlots.displayEndTime=&checkout.fulfillment.pickupTab.pickup.timeSlot.dateTimeSlots.isRecommended=false&checkout.fulfillment.pickupTab.pickup.timeSlot.dateTimeSlots.endTime=$endTime&checkout.fulfillment.pickupTab.pickup.timeSlot.dateTimeSlots.date=$date&checkout.fulfillment.pickupTab.pickup.timeSlot.dateTimeSlots.timeSlotId=$slotId&checkout.fulfillment.pickupTab.pickup.timeSlot.dateTimeSlots.signKey=$signKey&checkout.fulfillment.pickupTab.pickup.timeSlot.dateTimeSlots.timeZone=Asia/Shanghai&checkout.fulfillment.pickupTab.pickup.timeSlot.dateTimeSlots.timeSlotValue=$timeSlotValue&checkout.fulfillment.pickupTab.pickup.timeSlot.dateTimeSlots.dayRadio=$dayRadio&checkout.fulfillment.pickupTab.pickup.timeSlot.dateTimeSlots.displayStartTime="
-//                "checkout.fulfillment.fulfillmentOptions.selectFulfillmentLocation=RETAIL&checkout.fulfillment.pickupTab.pickup.storeLocator.showAllStores=false&checkout.fulfillment.pickupTab.pickup.storeLocator.selectStore=R683&checkout.fulfillment.pickupTab.pickup.storeLocator.searchInput=上海 上海 嘉定区&checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout.city=上海        &checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout.state=上海  &checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout.provinceCityDistrict=上海 嘉定区&            checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout.countryCode=CN&checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout.district=嘉定区&    checkout.fulfillment.pickupTab.pickup.timeSlot.dateTimeSlots.startTime=08:30 PM  &checkout.fulfillment.pickupTab.pickup.timeSlot.dateTimeSlots.displayEndTime=&checkout.fulfillment.pickupTab.pickup.timeSlot.dateTimeSlots.isRecommended=false&checkout.fulfillment.pickupTab.pickup.timeSlot.dateTimeSlots.endTime=08:45 PM&checkout.fulfillment.pickupTab.pickup.timeSlot.dateTimeSlots.date=     &checkout.fulfillment.pickupTab.pickup.timeSlot.dateTimeSlots.timeSlotId=       &checkout.fulfillment.pickupTab.pickup.timeSlot.dateTimeSlots.signKey=        &checkout.fulfillment.pickupTab.pickup.timeSlot.dateTimeSlots.timeZone=Asia/Shanghai&checkout.fulfillment.pickupTab.pickup.timeSlot.dateTimeSlots.timeSlotValue=26-20:30-20:45&checkout.fulfillment.pickupTab.pickup.timeSlot.dateTimeSlots.dayRadio=26       &checkout.fulfillment.pickupTab.pickup.timeSlot.dateTimeSlots.displayStartTime="
             )
         }
     }.body()?.string()?.also { println(it) }?.fromJson(Resp::class.java)?.check("确认提货店铺失败")
@@ -410,17 +412,19 @@ fun HttpGetContext.appleHeader(
     }
 }
 
-class MonitorStockTask(val phone: String, val location: String) : Runnable {
+class MonitorStockTask(private val phone: String, private val location: String, private val acceptListeners: Int) :
+    Runnable {
 
+    @Volatile
     private var listeners = arrayListOf<(String) -> Unit>()
 
     override fun run() {
 //        var proxyClient = proxyClient()
         while (true) {
-            if (listeners.isEmpty()) {
+            if (listeners.size < acceptListeners) {
                 continue
             }
-            val latch = CountDownLatch(listeners.size)
+            println("获取到的listeners = $listeners")
             try {
                 //请求苹果
                 val resp =
@@ -429,7 +433,8 @@ class MonitorStockTask(val phone: String, val location: String) : Runnable {
                             location
                         )
                     }"
-                        .httpGet().body()?.string()?.also { println(it) }?.fromJson(ApplePhoneResp::class.java)!!
+                        .httpGet().body()?.string()?.also { println("请求库存 $it") }
+                        ?.fromJson(ApplePhoneResp::class.java)!!
                 val availableStore = resp.body.content.pickupMessage.stores
                     .filterNot { s ->
                         listOf(
@@ -443,10 +448,12 @@ class MonitorStockTask(val phone: String, val location: String) : Runnable {
                     .first { s -> s.partsAvailability[phone]!!.pickupDisplay == "available" }
                 println(availableStore) //TODO 有货，正在下单
                 WechatSender().sendMsg("当前商店有货，准备下单 ${availableStore.storeName}")
+                val latch = CountDownLatch(listeners.size)
                 listeners.parallelStream().forEach { a ->
                     try {
                         a.invoke(availableStore.storeNumber)
                     } catch (e: Exception) {
+                        println("下单失败，${e.message}")
 //                        WechatSender().sendMsg("当前商店${availableStore.storeName}下单失败")
                     } finally {
                         latch.countDown()
@@ -464,6 +471,7 @@ class MonitorStockTask(val phone: String, val location: String) : Runnable {
 
     fun register(listener: (String) -> Unit) {
         listeners.add(listener)
+        println("listeners = $listeners")
     }
 }
 
