@@ -4,35 +4,58 @@ import io.github.rybalkinsd.kohttp.dsl.httpGet
 import io.github.rybalkinsd.kohttp.dsl.httpPost
 import io.github.rybalkinsd.kohttp.ext.httpGet
 import io.github.rybalkinsd.kohttp.ext.url
+import okhttp3.Headers
 import org.openqa.selenium.By
 import org.openqa.selenium.Cookie
 import org.openqa.selenium.PageLoadStrategy
 import org.openqa.selenium.chrome.ChromeDriver
 import org.openqa.selenium.chrome.ChromeOptions
-import org.openqa.selenium.devtools.v94.network.Network
+import org.openqa.selenium.devtools.v95.network.Network
+import org.openqa.selenium.net.HostIdentifier
+import org.openqa.selenium.support.ui.ExpectedConditions
+import org.openqa.selenium.support.ui.WebDriverWait
 import java.net.URLEncoder
 import java.time.Duration
 import java.util.*
 import java.util.concurrent.CountDownLatch
 import kotlin.concurrent.timerTask
-import kotlin.system.measureTimeMillis
 
-//val shanghaiShop = listOf("R390", "R359", "R401", "R389", "R683", "R581", "R705")
-val shanghaiShop = listOf("R390", "R359")
+val shanghaiShop = listOf("R390", "R359", "R401", "R389", "R683", "R581", "R705")
+//val shanghaiShop = listOf("R401")
+//val shanghaiShop = listOf("R390", "R359")
+//val shanghaiShop = listOf("R390")
+
+val searchInput = "上海 上海 黄浦区"
+val city = "上海"
+val provinceCityDistrict = "上海 黄浦区"
+val district = "黄浦区"
 
 val chromeOptions = ChromeOptions().apply {
     //无头的问题
-//        addArguments("--window-size=1920,1080","--start-maximized","--ignore-certificate-errors","--allow-running-insecure-content", "--disable-extensions", "--headless", "--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage", "--proxy-server=direct://")
-//        setHeadless(true)
+    setHeadless(true)
+    addArguments(
+        "--no-sandbox",
+        "--disable-gpu",
+        "--disable-images",
+        "window-size=1200x600",
+        "user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36"
+    )
+    addArguments("--incognito")
+    addArguments("--disable-blink-features=AutomationControlled")
+    setExperimentalOption("excludeSwitches", listOf("enable-automation"))
+    setExperimentalOption("useAutomationExtension", false)
     setPageLoadStrategy(PageLoadStrategy.NORMAL)
     setImplicitWaitTimeout(Duration.ofSeconds(10))
 }
 
 fun main() {
     System.setProperty("webdriver.chrome.driver", "/Users/mars/chromedriver")
+//    System.setProperty("webdriver.chrome.driver", "/opt/bin/chromedriver")
+    HostIdentifier.getHostAddress()
     while (true) {
 //        val phone = "MLTE3CH/A" //远峰蓝
-        val phone = "MJQ73CH/A" //iphone12
+//        val phone = "MJQ73CH/A" //iphone12
+        val phone = "MLTC3CH/A" //银色
         val task = MonitorStockTask(phone, "上海 上海 黄浦区", shanghaiShop.size)
         val thread = Thread(task, task.javaClass.simpleName)
         thread.start()
@@ -57,6 +80,10 @@ private fun goToShopping(
         var timer: Timer? = null
         var stk = ""
         val driver = ChromeDriver(chromeOptions)
+//            .apply {
+//                executeCdpCommand("Page.addScriptToEvaluateOnNewDocument", mapOf("source" to js))
+//            }
+
         driver.devTools.apply {
             createSession()
             send(Network.enable(Optional.empty(), Optional.empty(), Optional.empty()))
@@ -71,48 +98,55 @@ private fun goToShopping(
         val latch = CountDownLatch(1)
         try {
             //加购
-            readyShopIphone12(driver)
+//            readyShopIphone12(driver)
 //            readyShopIphone13Pro(driver)
-            refreshAppStore(driver)
+            readyShopIphone13ProYingse(driver)
+            refreshAppStore(driver, store)
             //当前页面有库存吗
             val urlHead = driver.currentUrl.subSequence(8, 15).toString()
-            val cookie = driver.getCookie()
+
             //定时刷新页面，180秒一次,检查是否有库存
             timer = Timer().apply {
                 schedule(
                     timerTask {
-                        driver["https://$urlHead.www.apple.com.cn/shop/checkout?_s=Fulfillment-init"]
+                        driver.navigate().refresh()
                         Thread.sleep(2000)
-                        if (driver.currentUrl.contains("session_expired")) {
+                        if (driver.currentUrl.contains("session_expired") ||
+                            driver.currentUrl.contains("message_generic")
+                        ) {
                             //如果session过期就重开
                             latch.countDown()
+                            return@timerTask
                         }
                     },
                     60 * 3000L,
                     60 * 3000L
                 )
             }
+            val cookies = driver.getCookies()
             //加购
-            shopping(stk, cookie, store, urlHead)
+            shopping(stk, cookies, store, urlHead)
             //注册下单
             task.register { s ->
                 //只有有货的时候，才能往下走。
                 if (store == s) {
+                    var start = System.currentTimeMillis()
                     try {
-                        val times = measureTimeMillis {
-                            pickup(stk, cookie, urlHead)
-                            billing(stk, cookie, urlHead)
-                            reviewOrder(stk, cookie, urlHead)
-                        }
-                        println("下单耗时${times / 1000} s")
+                        pickup(stk, cookies, urlHead)
+                        billing(stk, cookies, urlHead)
+                        reviewOrder(stk, cookies, urlHead)
                         driver["https://$urlHead.www.apple.com.cn/shop/checkout/status"]
-                        Thread.sleep(10000)
+                        Thread.sleep(5000)
                         if (!driver.currentUrl.contains("/shop/checkout/thankyou")) {
+                            start -= 5000 //减去睡眠的时间
                             throw RuntimeException("下单失败")
                         }
-                        WechatSender().sendMsg("苹果商店下单成功，请尽快支付")
+                        val end = System.currentTimeMillis()
+                        WechatSender().sendMsg("苹果商店下单成功，请尽快支付, 耗时${(end - start) / 1000 - 5}s")
                     } catch (e: Exception) {
-                        WechatSender().sendMsg("苹果商店下单失败，请检查程序${e.message}")
+                        e.printStackTrace()
+                        val end = System.currentTimeMillis()
+                        WechatSender().sendMsg("苹果商店下单失败，耗时 ${(end - start) / 1000}s, 请检查程序${e.message}")
                     }
                 }
                 latch.countDown()
@@ -121,8 +155,8 @@ private fun goToShopping(
             globalLatch.countDown() //执行完就全局countDown
             break
         } catch (e: Exception) {
-            println("系统异常,${e.printStackTrace()}")
-//                WechatSender().sendMsg("系统异常,${e.message ?: ""}")
+            println("系统异常")
+            e.printStackTrace()
         } finally {
             println("退出购买流程, $store")
             timer?.cancel()
@@ -131,21 +165,16 @@ private fun goToShopping(
     }
 }
 
-private fun shopping(stk: String = "", cookie: String, storeId: String, urlHead: String) {
-    //找到可取货的店铺并点击
-    if (stk.isBlank()) {
-        throw RuntimeException("未获取到stk")
-    }
-    println("店铺id = $storeId, stk = $stk, cookie=$cookie")
-    val searchInput = "上海 上海 黄浦区"
-    val city = "上海"
-    val provinceCityDistrict = "上海 黄浦区"
-    val district = "黄浦区"
-    stateCitySelectorForCheckout(stk, cookie, city, city, provinceCityDistrict, district, urlHead)
-    queryStoreLocator(stk, cookie, searchInput, city, city, provinceCityDistrict, district, urlHead)
+private fun shopping(
+    stk: String = "",
+    cookies: MutableMap<String, String>,
+    store: String,
+    urlHead: String
+) {
     val d = selectStoreLocator(
-        stk, cookie,
-        storeId,
+        stk,
+        cookies,
+        store,
         searchInput,
         city,
         city,
@@ -164,8 +193,8 @@ private fun shopping(stk: String = "", cookie: String, storeId: String, urlHead:
         .date
     fulfillment(
         stk,
-        cookie,
-        storeId,
+        cookies,
+        store,
         searchInput,
         city,
         provinceCityDistrict,
@@ -174,61 +203,16 @@ private fun shopping(stk: String = "", cookie: String, storeId: String, urlHead:
         timeSlot.second.checkInEnd, //结束时间
         date, //日期
         timeSlot.second.timeSlotValue, //时间段
-        timeSlot.first,
+        timeSlot.first,//日
         timeSlot.second.SlotId,
         timeSlot.second.signKey,
         urlHead
     )
 }
 
-fun stateCitySelectorForCheckout(
-    stk: String,
-    cookie: String,
-    city: String,
-    state: String,
-    provinceCityDistrict: String,
-    district: String,
-    urlHead: String
-) {
-    httpPost {
-        url("https://$urlHead.www.apple.com.cn/shop/checkoutx?_a=Selectstate&_m=checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout")
-        appleHeader(stk, cookie)
-        body("application/x-www-form-urlencoded") {
-            string("checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout.city=$city&checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout.state=$state&checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout.provinceCityDistrict=$provinceCityDistrict&checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout.countryCode=CN&checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout.district=$district")
-        }
-    }.body()?.string()?.also { println(it) }
-}
-
-/**
- * 查询有货店铺
- */
-fun queryStoreLocator(
-    stk: String,
-    cookie: String,
-    searchInput: String,
-    city: String,
-    state: String,
-    provinceCityDistrict: String,
-    district: String,
-    urlHead: String
-): AvailableStockResp {
-    val availableStockResp = httpPost {
-        url("https://$urlHead.www.apple.com.cn/shop/checkoutx?_a=search&_m=checkout.fulfillment.pickupTab.pickup.storeLocator")
-        appleHeader(stk, cookie)
-        body("application/x-www-form-urlencoded") {
-            string("checkout.fulfillment.pickupTab.pickup.storeLocator.showAllStores=true&checkout.fulfillment.pickupTab.pickup.storeLocator.selectStore=&checkout.fulfillment.pickupTab.pickup.storeLocator.searchInput=$searchInput&checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout.city=$city&checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout.state=$state&checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout.provinceCityDistrict=$provinceCityDistrict&checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout.countryCode=CN&checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout.district=$district")
-        }
-    }.body()?.string()?.also {
-        println(it)
-    }?.fromJson(AvailableStockResp::class.java)
-        ?: throw RuntimeException("请求查询店铺库存接口失败")
-    println("查询库存成功")
-    return availableStockResp
-}
-
 fun selectStoreLocator(
     stk: String,
-    cookie: String,
+    cookies: MutableMap<String, String>,
     selectStore: String,
     searchInput: String,
     city: String,
@@ -237,19 +221,33 @@ fun selectStoreLocator(
     district: String,
     urlHead: String
 ): AvailableStockResp {
-    val availableStockResp = (httpPost {
-        url("https://$urlHead.www.apple.com.cn/shop/checkoutx?_a=search&_m=checkout.fulfillment.pickupTab.pickup.storeLocator")
-        appleHeader(stk, cookie)
-        body("application/x-www-form-urlencoded") {
-            string("checkout.fulfillment.pickupTab.pickup.storeLocator.showAllStores=false&checkout.fulfillment.pickupTab.pickup.storeLocator.selectStore=$selectStore&checkout.fulfillment.pickupTab.pickup.storeLocator.searchInput=$searchInput&checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout.city=$city&checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout.state=$state&checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout.provinceCityDistrict=$provinceCityDistrict&checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout.countryCode=CN&checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout.district=$district")
-        }
-    }.body()?.string()?.also {
-        println(it)
-    }?.fromJson(AvailableStockResp::class.java)
-        ?: throw RuntimeException("请求查询店铺库存接口失败"))
+    val availableStockResp = retryReturn(60) {
+        httpPost(default) {
+            url("https://$urlHead.www.apple.com.cn/shop/checkoutx?_a=select&_m=checkout.fulfillment.pickupTab.pickup.storeLocator")
+            appleHeader(stk, toCookies(cookies), urlHead)
+            body("application/x-www-form-urlencoded") {
+                string("checkout.fulfillment.pickupTab.pickup.storeLocator.showAllStores=false&checkout.fulfillment.pickupTab.pickup.storeLocator.selectStore=$selectStore&checkout.fulfillment.pickupTab.pickup.storeLocator.searchInput=$searchInput&checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout.city=$city&checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout.state=$state&checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout.provinceCityDistrict=$provinceCityDistrict&checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout.countryCode=CN&checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout.district=$district")
+            }
+        }.also {
+            updateCookies(it.headers(), cookies)
+        }.body()?.string()?.also {
+            println(it)
+        }?.fromJson(AvailableStockResp::class.java)
+            ?: throw RuntimeException("请求查询店铺库存接口失败")
+    }
     println("查询库存成功")
     return availableStockResp
 
+}
+
+fun updateCookies(headers: Headers, cookies: MutableMap<String, String>) {
+    //更新cookie
+    headers.values("Set-Cookie").map { s ->
+        val split = s.split(";")[0].split("=")
+        split[0] to split[1]
+    }.forEach { pair ->
+        cookies[pair.first] = pair.second
+    }
 }
 
 /**
@@ -257,7 +255,7 @@ fun selectStoreLocator(
  */
 fun fulfillment(
     stk: String,
-    cookie: String,
+    cookies: MutableMap<String, String>,
     selectStore: String,
     searchInput: String,
     city: String,
@@ -272,16 +270,18 @@ fun fulfillment(
     signKey: String,
     urlHead: String
 ) {
-    httpPost {
-        url("https://$urlHead.www.apple.com.cn/shop/checkoutx?_a=continue&_m=checkout.fulfillment")
-        appleHeader(stk, cookie)
-        body("application/x-www-form-urlencoded") {
-            string(
-                "checkout.fulfillment.fulfillmentOptions.selectFulfillmentLocation=RETAIL&checkout.fulfillment.pickupTab.pickup.storeLocator.showAllStores=false&checkout.fulfillment.pickupTab.pickup.storeLocator.selectStore=$selectStore&checkout.fulfillment.pickupTab.pickup.storeLocator.searchInput=$searchInput&checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout.city=$city&checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout.state=$city&checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout.provinceCityDistrict=$provinceCityDistrict&checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout.countryCode=CN&checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout.district=$district&checkout.fulfillment.pickupTab.pickup.timeSlot.dateTimeSlots.startTime=$startTime&checkout.fulfillment.pickupTab.pickup.timeSlot.dateTimeSlots.displayEndTime=&checkout.fulfillment.pickupTab.pickup.timeSlot.dateTimeSlots.isRecommended=false&checkout.fulfillment.pickupTab.pickup.timeSlot.dateTimeSlots.endTime=$endTime&checkout.fulfillment.pickupTab.pickup.timeSlot.dateTimeSlots.date=$date&checkout.fulfillment.pickupTab.pickup.timeSlot.dateTimeSlots.timeSlotId=$slotId&checkout.fulfillment.pickupTab.pickup.timeSlot.dateTimeSlots.signKey=$signKey&checkout.fulfillment.pickupTab.pickup.timeSlot.dateTimeSlots.timeZone=Asia/Shanghai&checkout.fulfillment.pickupTab.pickup.timeSlot.dateTimeSlots.timeSlotValue=$timeSlotValue&checkout.fulfillment.pickupTab.pickup.timeSlot.dateTimeSlots.dayRadio=$dayRadio&checkout.fulfillment.pickupTab.pickup.timeSlot.dateTimeSlots.displayStartTime="
-            )
-        }
-    }.body()?.string()?.also { println(it) }?.fromJson(Resp::class.java)?.check("确认提货店铺失败")
-        ?: throw RuntimeException("请求接口失败")
+    retry(60) {
+        httpPost(default) {
+            url("https://$urlHead.www.apple.com.cn/shop/checkoutx?_a=continue&_m=checkout.fulfillment")
+            appleHeader(stk, toCookies(cookies), urlHead)
+            body("application/x-www-form-urlencoded") {
+                string(
+                    "checkout.fulfillment.fulfillmentOptions.selectFulfillmentLocation=RETAIL&checkout.fulfillment.pickupTab.pickup.storeLocator.showAllStores=false&checkout.fulfillment.pickupTab.pickup.storeLocator.selectStore=$selectStore&checkout.fulfillment.pickupTab.pickup.storeLocator.searchInput=$searchInput&checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout.city=$city&checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout.state=$city&checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout.provinceCityDistrict=$provinceCityDistrict&checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout.countryCode=CN&checkout.fulfillment.pickupTab.pickup.storeLocator.address.stateCitySelectorForCheckout.district=$district&checkout.fulfillment.pickupTab.pickup.timeSlot.dateTimeSlots.startTime=$startTime&checkout.fulfillment.pickupTab.pickup.timeSlot.dateTimeSlots.displayEndTime=&checkout.fulfillment.pickupTab.pickup.timeSlot.dateTimeSlots.isRecommended=false&checkout.fulfillment.pickupTab.pickup.timeSlot.dateTimeSlots.endTime=$endTime&checkout.fulfillment.pickupTab.pickup.timeSlot.dateTimeSlots.date=$date&checkout.fulfillment.pickupTab.pickup.timeSlot.dateTimeSlots.timeSlotId=$slotId&checkout.fulfillment.pickupTab.pickup.timeSlot.dateTimeSlots.signKey=$signKey&checkout.fulfillment.pickupTab.pickup.timeSlot.dateTimeSlots.timeZone=Asia/Shanghai&checkout.fulfillment.pickupTab.pickup.timeSlot.dateTimeSlots.timeSlotValue=$timeSlotValue&checkout.fulfillment.pickupTab.pickup.timeSlot.dateTimeSlots.dayRadio=$dayRadio&checkout.fulfillment.pickupTab.pickup.timeSlot.dateTimeSlots.displayStartTime="
+                )
+            }
+        }.body()?.string()?.also { println(it) }?.fromJson(Resp::class.java)?.check("确认提货店铺失败")
+            ?: throw RuntimeException("请求接口失败")
+    }
     println("确认提货店铺成功, 时间 = $timeSlotValue，店铺id = $selectStore")
     WechatSender().sendMsg("确认提货店铺成功, 时间 = $timeSlotValue，店铺id = $selectStore")
 }
@@ -290,31 +290,69 @@ private fun readyShopIphone12(driver: ChromeDriver) {
     driver["https://www.apple.com.cn/shop/buy-iphone/iphone-12"]
     Thread.sleep(1000)
     addGoods("MJQ73CH/A", driver.manage().cookies) //iphone12
+//    addGoods("MHJ83CH/A", driver.manage().cookies) //充电头
 }
 
-private fun refreshAppStore(driver: ChromeDriver) {
+private fun refreshAppStore(driver: ChromeDriver, store: String) {
     driver["https://www.apple.com.cn/shop/bag"]
     //结账
-    driver.findVisibilityElement(By.xpath("/html/body/div[3]/div[4]/div[2]/div[1]/div[3]/div/div/div/button"))
+    driver.findClickableElement(By.xpath("/html/body/div[3]/div[4]/div[2]/div[1]/div[3]/div/div/div/button"))
         .jsClick(driver)
     //结账
-    driver.findVisibilityElement(By.ById("shoppingCart.actions.checkout")).jsClick(driver)
+    driver.findClickableElement(By.ById("shoppingCart.actions.checkout")).jsClick(driver)
     //游客登录
-    driver.findVisibilityElement(By.ById("signIn.guestLogin.guestLogin")).jsClick(driver)
+//    driver.findClickableElement(By.ById("signIn.guestLogin.guestLogin")).jsClick(driver)
+    //appid 登录
+    driver.findVisibilityElement(By.ById("signIn.customerLogin.appleId")).sendKeys("13093687239@163.com")
+    driver.findVisibilityElement(By.ById("signIn.customerLogin.password")).sendKeys("#103.?yhj%KK")
+    driver.findClickableElement(By.ById("signin-submit-button")).jsClick(driver)
+    Thread.sleep(2000)
     //我要取货
-    driver.retryFindElement(By.ById("fulfillmentOptionButtonGroup1")).jsClick(driver)
-    Thread.sleep(500)
+    driver.findClickableElement(By.ByCssSelector("[for=\"fulfillmentOptionButtonGroup1\"]")).jsClick(driver)
+    Thread.sleep(5000)
+    refreshLocation(driver)
+//    driver.retryFindElement(By.ById("checkout.fulfillment.pickupTab.pickup.storeLocator-$store-label")).jsClick(driver)
+//    Thread.sleep(3000)
+//    Select(driver.retryFindElement(By.className("form-dropdown-select"))).selectByIndex(1)
+//    //只要还在当前页面就不停点击
+//    while (driver.currentUrl.contains("/shop/checkout?_s=Fulfillment-init")) {
+//        //下一步
+//        driver.retryFindElement(By.ById("rs-checkout-continue-button-bottom")).jsClick(driver)
+//        Thread.sleep(3000)
+//    }
+}
+
+private fun refreshLocation(driver: ChromeDriver) {
     //显示零售店
-    driver.retryFindElement(By.ByClassName("as-address-accordion")).jsClick(driver)
-    //是否保存地址
-    val saveLocation = driver.retryFindElement(By.id("checkout.fulfillment.pickupTab.pickup-locationConsent"))
-    //记录地区
-    saveLocation.retryFindElement(driver, By.xpath("../label")).jsClick(driver)
+    driver.findClickableElement(By.ByClassName("rs-edit-location-button")).jsClick(driver)
+    Thread.sleep(2000)
+    driver.findClickableElement(By.className("form-checkbox-indicator")).jsClick(driver)
+    Thread.sleep(2000)
+    driver.findClickableElement(By.ByXPath("//*[@id=\"panel-rc-province-selector-tabs-0\"]/ol/li[2]/button"))
+        .jsClick(driver)
+    Thread.sleep(2000)
+//    选择 地区
+    driver.findClickableElement(By.ByXPath("//*[@id=\"panel-rc-province-selector-tabs-1\"]/ol/li[1]/button"))
+        .jsClick(driver)
+    Thread.sleep(2000)
+//    等待<继续填写>按钮可点击
+    WebDriverWait(
+        driver,
+        Duration.ofSeconds(10)
+    ).until { ExpectedConditions.elementToBeClickable(By.id("rs-checkout-continue-button-bottom")) }
+    //显示更多
+    driver.findClickableElement(By.ByClassName("rt-storelocator-store-showmore")).jsClick(driver)
 }
 
 private fun readyShopIphone13Pro(driver: ChromeDriver) {
     driver["https://www.apple.com.cn/shop/buy-iphone/iphone-13-pro"]
     addGoods("MLTE3CH/A", driver.manage().cookies) //远峰蓝
+    addGoods("MHJ83CH/A", driver.manage().cookies) //充电头
+}
+
+private fun readyShopIphone13ProYingse(driver: ChromeDriver) {
+    driver["https://www.apple.com.cn/shop/buy-iphone/iphone-13-pro"]
+    addGoods("MLTC3CH/A", driver.manage().cookies) //远峰蓝
     addGoods("MHJ83CH/A", driver.manage().cookies) //充电头
 }
 
@@ -332,17 +370,17 @@ fun addGoods(goodsId: String, cookies: Collection<Cookie>) {
 /**
  * 填写人的信息
  */
-public fun pickup(stk: String, cookie: String, urlHead: String) {
+fun pickup(stk: String, cookies: MutableMap<String, String>, urlHead: String) {
     val lastName = "袁"
     val firstName = "华健"
     val emailAddress = "13093687239@163.com"
     val fullDaytimePhone = "13093687239"
     val nationalId = "342601199607122419"
 
-    retry(10) {
-        httpPost {
+    retry(60) {
+        httpPost(default) {
             url("https://$urlHead.www.apple.com.cn/shop/checkoutx?_a=continue&_m=checkout.pickupContact")
-            appleHeader(stk, cookie)
+            appleHeader(stk, toCookies(cookies), urlHead)
             body("application/x-www-form-urlencoded") {
                 string("checkout.pickupContact.selfPickupContact.selfContact.address.lastName=${lastName}&checkout.pickupContact.selfPickupContact.selfContact.address.firstName=${firstName}&checkout.pickupContact.selfPickupContact.selfContact.address.emailAddress=${emailAddress}&checkout.pickupContact.selfPickupContact.selfContact.address.fullDaytimePhone=${fullDaytimePhone}&checkout.pickupContact.eFapiaoSelector.selectFapiao=none&checkout.pickupContact.nationalID.nationalId=${nationalId}")
             }
@@ -357,15 +395,15 @@ public fun pickup(stk: String, cookie: String, urlHead: String) {
 /**
  * 确认支付方式
  */
-fun billing(stk: String, cookie: String, urlHead: String) {
+fun billing(stk: String, cookies: MutableMap<String, String>, urlHead: String) {
     val selectBillingOption = "installments0001321713" //招行分期
     val selectInstallmentOption = "24"
 //    val selectBillingOption = "installments0001243254" //支付宝分期
 //    val selectInstallmentOption = "12"
-    retry(10) {
-        httpPost {
+    retry(60) {
+        httpPost(default) {
             url("https://$urlHead.www.apple.com.cn/shop/checkoutx?_a=selectBillingOptionAction&_m=checkout.billing.billingOptions")
-            appleHeader(stk, cookie)
+            appleHeader(stk, toCookies(cookies), urlHead)
             body("application/x-www-form-urlencoded") {
                 //支付宝分期12期
 //            string("checkout.billing.billingOptions.selectBillingOption=installments0001321713&checkout.billing.billingOptions.selectedBillingOptions.installments.installmentOptions.selectInstallmentOption=12&checkout.locationConsent.locationConsent=false")
@@ -377,10 +415,10 @@ fun billing(stk: String, cookie: String, urlHead: String) {
             ?: throw RuntimeException("请求billingOptions接口失败")
     }
     println("请求billingOptions成功")
-    retry(10) {
-        httpPost {
+    retry(60) {
+        httpPost(default) {
             url("https://$urlHead.www.apple.com.cn/shop/checkoutx?_a=continue&_m=checkout.billing")
-            appleHeader(stk, cookie)
+            appleHeader(stk, toCookies(cookies), urlHead)
             body("application/x-www-form-urlencoded") {
                 string("checkout.billing.billingOptions.selectBillingOption=$selectBillingOption&checkout.billing.billingOptions.selectedBillingOptions.installments.installmentOptions.selectInstallmentOption=$selectInstallmentOption")
             }
@@ -394,40 +432,44 @@ fun billing(stk: String, cookie: String, urlHead: String) {
 /**
  * 确认下单
  */
-fun reviewOrder(stk: String, cookie: String, urlHead: String) {
-    httpPost {
-        url("https://$urlHead.www.apple.com.cn/shop/checkoutx?_a=continue&_m=checkout.review.placeOrder")
-        appleHeader(stk, cookie)
-        body("application/x-www-form-urlencoded") {
-            string("")
-        }
-    }.body()?.string()?.also { println(it) }?.fromJson(Resp::class.java)?.checkOrderSuccess()
-        ?: throw RuntimeException("请求确认下单接口失败")
-    println("确认下单成功")
+fun reviewOrder(stk: String, cookies: MutableMap<String, String>, urlHead: String) {
+    retry(60) {
+        httpPost(default) {
+            url("https://$urlHead.www.apple.com.cn/shop/checkoutx?_a=continue&_m=checkout.review.placeOrder")
+            appleHeader(stk, toCookies(cookies), urlHead)
+            body("application/x-www-form-urlencoded") {
+                string("")
+            }
+        }.body()?.string()?.also { println(it) }?.fromJson(Resp::class.java)?.checkOrderSuccess()
+            ?: throw RuntimeException("请求确认下单接口失败")
+    }
+    println("确认下单")
 }
 
 fun HttpPostContext.appleHeader(
     stk: String,
-    cookie: String
+    cookie: String,
+    urlHead: String
 ) {
     header {
-        "Connection" to "keep-alive"
         "sec-ch-ua" to "\"Google Chrome\";v=\"95\", \"Chromium\";v=\"95\", \";Not A Brand\";v=\"99\""
-        "authority" to "secure4.www.apple.com.cn"
+        "authority" to "$urlHead.www.apple.com.cn"
         "syntax" to "graviton"
         "sec-ch-ua-mobile" to "?0"
-        "User-Agent" to "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.54 Safari/537.36"
+        "user-agent" to "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.69 Safari/537.36"
         "content-type" to "application/x-www-form-urlencoded"
         "x-aos-stk" to stk
         "x-aos-model-page" to "checkoutPage"
-        "x-requested-with" to "XMLHttpRequest"
+        "x-requested-with" to "Fetch"
         "modelversion" to "v2"
         "sec-ch-ua-platform" to "\"macOS\""
         "accept" to "*/*"
-        "origin" to "https://secure4.www.apple.com.cn"
+        "origin" to "https://$urlHead.www.apple.com.cn"
         "sec-fetch-site" to "same-origin"
         "sec-fetch-mode" to "cors"
         "sec-fetch-dest" to "empty"
+        "referer" to "https://$urlHead.www.apple.com.cn/shop/checkout?_s=Fulfillment-init"
+        "accept-language" to "zh-CN,zh;q=0.9"
         "cookie" to cookie
     }
 }
@@ -462,10 +504,9 @@ class MonitorStockTask(private val phone: String, private val location: String, 
 
     override fun run() {
         while (true) {
-            if (listeners.size < acceptListeners) {
+            if (listeners.size != acceptListeners) {
                 continue
             }
-            println("获取到的listeners = $listeners")
             try {
                 //请求苹果
                 val resp =
@@ -477,14 +518,8 @@ class MonitorStockTask(private val phone: String, private val location: String, 
                         .httpGet().body()?.string()?.also { println("请求库存 $it") }
                         ?.fromJson(ApplePhoneResp::class.java)!!
                 val availableStore = resp.body.content.pickupMessage.stores
-                    .filterNot { s ->
-                        listOf(
-                            "Apple 苏州",
-                            "Apple 无锡恒隆广场",
-                            "Apple 杭州万象城",
-                            "Apple 西湖",
-                            "Apple 天一广场"
-                        ).contains(s.storeName)
+                    .filter { s ->
+                        shanghaiShop.contains(s.storeNumber)
                     }
                     .first { s -> s.partsAvailability[phone]!!.pickupDisplay == "available" }
                 println(availableStore) //TODO 有货，正在下单
@@ -514,8 +549,15 @@ class MonitorStockTask(private val phone: String, private val location: String, 
 
     fun register(listener: (String) -> Unit) {
         listeners.add(listener)
-        println("listeners = $listeners")
+        if (listeners.size == acceptListeners) {
+            WechatSender().sendMsg("所有浏览器已就绪")
+        }
     }
+}
+
+fun toCookies(cookies: MutableMap<String, String>): String {
+    return cookies.entries.filter { it.value.isNotBlank() }
+        .joinToString(separator = "; ", transform = { "${it.key}=${it.value}" })
 }
 
 data class AddToBagResp(

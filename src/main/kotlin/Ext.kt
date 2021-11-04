@@ -1,5 +1,6 @@
 import com.google.gson.Gson
 import org.openqa.selenium.By
+import org.openqa.selenium.JavascriptExecutor
 import org.openqa.selenium.WebElement
 import org.openqa.selenium.chrome.ChromeDriver
 import org.openqa.selenium.support.ui.ExpectedConditions
@@ -16,11 +17,15 @@ fun <T> String.fromJson(classOfT: Class<T>): T {
  * js 点击
  */
 fun WebElement.jsClick(driver: ChromeDriver) {
-    driver.executeScript("arguments[0].click();", this)
+   this.click()
 }
 
 fun ChromeDriver.getCookie(): String {
     return this.manage().cookies.joinToString(separator = "; ", transform = { "${it.name}=${it.value}" })
+}
+
+fun ChromeDriver.getCookies(): MutableMap<String, String> {
+    return this.manage().cookies.associate { it.name to it.value }.toMutableMap()
 }
 
 fun WebElement.retrySendKeys(driver: ChromeDriver, key: String) {
@@ -33,7 +38,7 @@ fun WebElement.retrySendKeys(driver: ChromeDriver, key: String) {
  * 重试获取元素
  */
 fun ChromeDriver.retryFindElement(locator: By, retry: Long = 3): WebElement {
-    WebDriverWait(this, Duration.ofSeconds(10)).until { ExpectedConditions.elementToBeClickable(locator) }
+    WebDriverWait(this, Duration.ofSeconds(10)).until { ExpectedConditions.elementToBeSelected(locator) }
     for (i in 1..retry) {
         try {
             return this.findElement(locator)
@@ -47,10 +52,22 @@ fun ChromeDriver.retryFindElement(locator: By, retry: Long = 3): WebElement {
     throw RuntimeException("find elements 失败, $this")
 }
 
-fun ChromeDriver.findVisibilityElement(locator: By, retry: Long = 3): WebElement {
-    WebDriverWait(this, Duration.ofSeconds(10)).until { ExpectedConditions.invisibilityOfElementLocated(locator) }
+fun ChromeDriver.findClickableElement(locator: By): WebElement {
+    WebDriverWait(this, Duration.ofSeconds(10)).until { ExpectedConditions.elementToBeClickable(locator) }
     return this.findElement(locator)
 }
+
+fun ChromeDriver.findVisibilityElement(locator: By): WebElement {
+    WebDriverWait(this, Duration.ofSeconds(10)).until { ExpectedConditions.visibilityOfElementLocated(locator) }
+    return this.findElement(locator)
+}
+
+fun ChromeDriver.findAndScrollClickableElement(locator: By): WebElement {
+    WebDriverWait(this, Duration.ofSeconds(10)).until { ExpectedConditions.elementToBeClickable(locator) }
+    val e = this.findElement(locator)
+    return e
+}
+
 
 fun retry(retry: Int = 3, apply: () -> Unit) {
     for (i in 1..retry) {
@@ -61,12 +78,12 @@ fun retry(retry: Int = 3, apply: () -> Unit) {
             if (i == retry) {
                 throw e
             }
-            Thread.sleep(1000)
+            Thread.sleep(2000)
         }
     }
 }
 
-fun <T> retryReturn(retry: Int = 3, apply: () -> T) :T {
+fun <T> retryReturn(retry: Int = 3, apply: () -> T): T {
     for (i in 1..retry) {
         try {
             return apply.invoke()
@@ -75,10 +92,10 @@ fun <T> retryReturn(retry: Int = 3, apply: () -> T) :T {
             if (i == retry) {
                 throw e
             }
-            Thread.sleep(500)
+            Thread.sleep(2000)
         }
     }
-    throw RuntimeException("调用失败")
+    throw RuntimeException("循环请求失败")
 }
 
 /**

@@ -28,6 +28,9 @@ fun proxyClient(): OkHttpClient {
             connectTimeout = TimeUnit.SECONDS.toMillis(20)
             readTimeout = TimeUnit.SECONDS.toMillis(20)
             writeTimeout = TimeUnit.SECONDS.toMillis(20)
+            interceptors {
+                interceptors = listOf(HttpLoggingInterceptor())
+            }
         }
     } ?: defaultHttpClient
 }
