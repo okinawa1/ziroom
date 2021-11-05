@@ -20,8 +20,8 @@ import java.util.*
 import java.util.concurrent.CountDownLatch
 import kotlin.concurrent.timerTask
 
-val shanghaiShop = listOf("R390", "R359", "R401", "R389", "R683", "R581", "R705")
-//val shanghaiShop = listOf("R401")
+//val shanghaiShop = listOf("R390", "R359", "R401", "R389", "R683", "R581", "R705")
+val shanghaiShop = listOf("R401")
 //val shanghaiShop = listOf("R390", "R359")
 //val shanghaiShop = listOf("R390")
 
@@ -36,16 +36,14 @@ val chromeOptions = ChromeOptions().apply {
     addArguments(
         "--no-sandbox",
         "--disable-gpu",
-        "--disable-images",
+//        "--disable-images",
         "window-size=1200x600",
         "user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36"
     )
     addArguments("--incognito")
-    addArguments("--disable-blink-features=AutomationControlled")
-    setExperimentalOption("excludeSwitches", listOf("enable-automation"))
-    setExperimentalOption("useAutomationExtension", false)
-    setPageLoadStrategy(PageLoadStrategy.NORMAL)
-    setImplicitWaitTimeout(Duration.ofSeconds(10))
+//    addArguments("--disable-blink-features=AutomationControlled")
+    setPageLoadStrategy(PageLoadStrategy.EAGER)
+    setImplicitWaitTimeout(Duration.ofSeconds(20))
 }
 
 fun main() {
@@ -54,8 +52,8 @@ fun main() {
     HostIdentifier.getHostAddress()
     while (true) {
 //        val phone = "MLTE3CH/A" //远峰蓝
-//        val phone = "MJQ73CH/A" //iphone12
-        val phone = "MLTC3CH/A" //银色
+        val phone = "MJQ73CH/A" //iphone12
+//        val phone = "MLTC3CH/A" //银色
         val task = MonitorStockTask(phone, "上海 上海 黄浦区", shanghaiShop.size)
         val thread = Thread(task, task.javaClass.simpleName)
         thread.start()
@@ -98,9 +96,9 @@ private fun goToShopping(
         val latch = CountDownLatch(1)
         try {
             //加购
-//            readyShopIphone12(driver)
+            readyShopIphone12(driver)
 //            readyShopIphone13Pro(driver)
-            readyShopIphone13ProYingse(driver)
+//            readyShopIphone13ProYingse(driver)
             refreshAppStore(driver, store)
             //当前页面有库存吗
             val urlHead = driver.currentUrl.subSequence(8, 15).toString()
@@ -300,8 +298,6 @@ private fun refreshAppStore(driver: ChromeDriver, store: String) {
         .jsClick(driver)
     //结账
     driver.findClickableElement(By.ById("shoppingCart.actions.checkout")).jsClick(driver)
-    //游客登录
-//    driver.findClickableElement(By.ById("signIn.guestLogin.guestLogin")).jsClick(driver)
     //appid 登录
     driver.findVisibilityElement(By.ById("signIn.customerLogin.appleId")).sendKeys("13093687239@163.com")
     driver.findVisibilityElement(By.ById("signIn.customerLogin.password")).sendKeys("#103.?yhj%KK")
@@ -311,15 +307,6 @@ private fun refreshAppStore(driver: ChromeDriver, store: String) {
     driver.findClickableElement(By.ByCssSelector("[for=\"fulfillmentOptionButtonGroup1\"]")).jsClick(driver)
     Thread.sleep(5000)
     refreshLocation(driver)
-//    driver.retryFindElement(By.ById("checkout.fulfillment.pickupTab.pickup.storeLocator-$store-label")).jsClick(driver)
-//    Thread.sleep(3000)
-//    Select(driver.retryFindElement(By.className("form-dropdown-select"))).selectByIndex(1)
-//    //只要还在当前页面就不停点击
-//    while (driver.currentUrl.contains("/shop/checkout?_s=Fulfillment-init")) {
-//        //下一步
-//        driver.retryFindElement(By.ById("rs-checkout-continue-button-bottom")).jsClick(driver)
-//        Thread.sleep(3000)
-//    }
 }
 
 private fun refreshLocation(driver: ChromeDriver) {

@@ -53,12 +53,12 @@ fun ChromeDriver.retryFindElement(locator: By, retry: Long = 3): WebElement {
 }
 
 fun ChromeDriver.findClickableElement(locator: By): WebElement {
-    WebDriverWait(this, Duration.ofSeconds(10)).until { ExpectedConditions.elementToBeClickable(locator) }
+    WebDriverWait(this, Duration.ofSeconds(20)).until { ExpectedConditions.elementToBeClickable(locator) }
     return this.findElement(locator)
 }
 
 fun ChromeDriver.findVisibilityElement(locator: By): WebElement {
-    WebDriverWait(this, Duration.ofSeconds(10)).until { ExpectedConditions.visibilityOfElementLocated(locator) }
+    WebDriverWait(this, Duration.ofSeconds(20)).until { ExpectedConditions.visibilityOfElementLocated(locator) }
     return this.findElement(locator)
 }
 
