@@ -1,10 +1,10 @@
 import com.google.gson.Gson
 import org.openqa.selenium.By
-import org.openqa.selenium.JavascriptExecutor
 import org.openqa.selenium.WebElement
 import org.openqa.selenium.chrome.ChromeDriver
 import org.openqa.selenium.support.ui.ExpectedConditions
 import org.openqa.selenium.support.ui.WebDriverWait
+import java.io.File
 import java.time.Duration
 
 val gson = Gson()
@@ -17,7 +17,7 @@ fun <T> String.fromJson(classOfT: Class<T>): T {
  * js 点击
  */
 fun WebElement.jsClick(driver: ChromeDriver) {
-   this.click()
+    this.click()
 }
 
 fun ChromeDriver.getCookie(): String {
@@ -149,4 +149,9 @@ fun WebElement.retryFindElements(driver: ChromeDriver, locator: By, retry: Long 
     throw RuntimeException("find elements 失败, $this")
 }
 
-
+fun File.create() {
+    if (!this.parentFile.exists())
+        this.parentFile.mkdirs()
+    if (!this.exists())
+        this.createNewFile()
+}
