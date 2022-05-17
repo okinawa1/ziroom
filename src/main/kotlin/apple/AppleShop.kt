@@ -10,7 +10,7 @@ import org.openqa.selenium.Cookie
 import org.openqa.selenium.PageLoadStrategy
 import org.openqa.selenium.chrome.ChromeDriver
 import org.openqa.selenium.chrome.ChromeOptions
-import org.openqa.selenium.devtools.v95.network.Network
+import org.openqa.selenium.devtools.v101.network.Network
 import org.openqa.selenium.net.HostIdentifier
 import org.openqa.selenium.support.ui.ExpectedConditions
 import org.openqa.selenium.support.ui.WebDriverWait
