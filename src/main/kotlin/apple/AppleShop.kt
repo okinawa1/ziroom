@@ -32,7 +32,7 @@ val district = "黄浦区"
 
 val chromeOptions = ChromeOptions().apply {
     //无头的问题
-    setHeadless(true)
+//    setHeadless(true)
     addArguments(
         "--no-sandbox",
         "--disable-gpu",
