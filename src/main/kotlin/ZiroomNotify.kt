@@ -58,7 +58,7 @@ fun getZiroomList(page: Int = 1): Pair<Int, List<Room>> {
     val ziroomList = rawRes
         .data.rooms.asSequence()
         .filter { r -> r.noViewRoom() }  //房间是否未被排除不看
-            .filter { r -> r.noViewCommunity() } // 小区是否未被排除不看
+        .filter { r -> r.noViewCommunity() } // 小区是否未被排除不看
         .filter { r -> r.isShare() && r.isNotFaceNorth() } //是否合租，不朝北
         .filter { r -> r.isNotFirstRoom() } //是否非首次出租
         .filter { r -> r.isGoodFloor() } //是否电梯房或低楼层

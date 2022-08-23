@@ -72,25 +72,49 @@ fun main() {
         driver.findClickableElement(By.xpath("//*[@id=\"app\"]/div[2]/div[2]/div/div/div/div[3]/ul/li[2]/div[2]/div/div"))
             .jsClick(driver)
         //课程列表
-        driver.findClickableElement(By.xpath("//*[@id=\"app\"]/div[2]/div[2]/div/div/div[2]/ul/li[6]"))
+        driver.findClickableElement(By.xpath("//*[@id=\"app\"]/div[2]/div[2]/div/div/div[2]/ul/li[7]"))
             .jsClick(driver)
         //继续学习
         driver.findClickableElement(By.xpath("//*[@id=\"app\"]/div[2]/div[2]/div[2]/div[2]/div/button"))
             .jsClick(driver)
         Thread.sleep(2000)
         checkPlay(driver)
-        checkPush()
-        checkSuspend(driver)
-        checkRefresh(driver)
+        checkPush(driver)
+        checkLogin(driver)
     }
     //主线程停止 一天6小时学习。
     Thread.sleep(1000 * 60 * 60 * 6)
+}
+
+fun checkLogin(driver: ChromeDriver) {
+    Thread{
+        while (true) {
+            try {
+                val loginButton = driver.findElement(By.xpath("/html/body/div[2]/div/div[2]/div/div[2]/div/button"))
+                if (loginButton.isDisplayed) {
+                    println("登录失效")
+                    //账号
+                    driver.findVisibilityElement(By.xpath("/html/body/div[2]/div/div[2]/div/div[2]/div/div[1]/div/input"))
+                        .sendKeys("13093687239")
+                    //密码
+                    driver.findVisibilityElement(By.xpath("/html/body/div[2]/div/div[2]/div/div[2]/div/div[1]/input"))
+                        .sendKeys("666666")
+                    //继续学习
+                    driver.findClickableElement(By.xpath("//*[@id=\"app\"]/div[2]/div[2]/div[2]/div[2]/div/button"))
+                        .jsClick(driver)
+                }
+            }catch (e:Exception){
+                println("未包含登录按钮")
+            }
+        }
+    }.start()
 }
 
 fun checkPlay(driver: ChromeDriver) {
     Thread {
         while (true) {
             try {
+                //检查是否播放
                 val btn = driver.findElement(By.xpath("/html/body/div[1]/div[2]/div[2]/div[1]/div[3]/div[4]/div[2]"))
                 btn.getDomAttribute("class").let {
                     if (it.contains("playing")) {
@@ -103,14 +127,19 @@ fun checkPlay(driver: ChromeDriver) {
             } catch (e: Exception) {
                 println("播放按钮不存在")
             }
-            Thread.sleep(1000)
-        }
-    }.start()
-}
 
-fun checkRefresh(driver: ChromeDriver) {
-    Thread {
-        while (true) {
+            try {
+                //确认提示
+                val continueTips = driver.findElement(By.xpath("/html/body/div[2]/div/div[2]/div/div[2]/div[2]/button"))
+                if (continueTips.isDisplayed) {
+                    println("继续学习")
+                    continueTips.click()
+                }
+            } catch (e: Exception) {
+                println(e.message)
+            }
+
+            //发生异常
             try {
                 val errorTips = driver.findElement(By.xpath("//*[@id=\"app\"]/div[2]/div[2]/div[1]/div[7]/button"))
                 if (errorTips.isDisplayed) {
@@ -118,38 +147,32 @@ fun checkRefresh(driver: ChromeDriver) {
                     driver.navigate().refresh()
                 }
             } catch (e: Exception) {
-                println(e.message)
+                println("没有异常提醒")
             }
-            Thread.sleep(1000)
-        }
-    }.start()
-}
 
-fun checkSuspend(driver: ChromeDriver) {
-    Thread {
-        while (true) {
             try {
                 //确认提示
-                val tips = driver.findElement(By.xpath("/html/body/div[2]/div/div[2]/div/div[2]/div[2]/button"))
-                tips?.jsClick(driver)
-                println("确认提示")
+                val continueTips = driver.findElement(By.xpath("/html/body/div[3]/div/div[2]/div/div[2]/div[2]/button"))
+                if (continueTips.isDisplayed) {
+                    println("继续学习")
+                    continueTips.click()
+                }
             } catch (e: Exception) {
-                println(e.message)
+                println("没有继续学习提醒")
             }
-            Thread.sleep(1000)
         }
     }.start()
 }
 
 //检测是否持续发送地址
-fun checkPush() {
+fun checkPush(driver: ChromeDriver) {
     Thread {
         while (true) {
             if (System.currentTimeMillis() - newPlayTime > 1000 * 60) {
                 println("视频观看失败，请重试，检查课程是否已经结束")
                 WechatSender().sendMsg("视频观看失败，请重试，检查课程是否已经结束")
-                Thread.sleep(1000)
             }
+            Thread.sleep(2000)
         }
     }.start()
 }
