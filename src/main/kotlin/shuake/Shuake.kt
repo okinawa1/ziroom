@@ -8,7 +8,7 @@ import org.openqa.selenium.By
 import org.openqa.selenium.PageLoadStrategy
 import org.openqa.selenium.chrome.ChromeDriver
 import org.openqa.selenium.chrome.ChromeOptions
-import org.openqa.selenium.devtools.v101.network.Network
+import org.openqa.selenium.devtools.v104.network.Network
 import retry
 import java.time.Duration
 import java.util.*
@@ -68,11 +68,10 @@ fun main() {
         driver.findClickableElement(By.xpath("/html/body/div[2]/div/div[2]/div/div[2]/div/button"))
             .jsClick(driver)
         Thread.sleep(2000)
-        //班级计划
-        driver.findClickableElement(By.xpath("//*[@id=\"app\"]/div[2]/div[2]/div/div/div/div[3]/ul/li[2]/div[2]/div/div"))
-            .jsClick(driver)
+        //学习课程
+        driver["http://shjg.yt.lllnet.cn/class/catalog?id=3427"]
         //课程列表
-        driver.findClickableElement(By.xpath("//*[@id=\"app\"]/div[2]/div[2]/div/div/div[2]/ul/li[7]"))
+        driver.findClickableElement(By.xpath("//*[@id=\"app\"]/div[2]/div[2]/div/div/div[2]/ul/li[1]"))
             .jsClick(driver)
         //继续学习
         driver.findClickableElement(By.xpath("//*[@id=\"app\"]/div[2]/div[2]/div[2]/div[2]/div/button"))
